@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Real-Time Analysis - Presentation Coach</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+
+        <div class="logo">
+            🎙️
+            <span>PRESENTATION COACH</span>
+        </div>
+
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">☰</button>
+
+        <div class="nav-links" id="navLinks">
+            <a href="index.html">Home</a>
+            <a href="analysis.html" class="active">Analysis</a>
+            <a href="results.html">Results</a>
+            <a href="recommendations.html">Recommendations</a>
+            <a href="about.html">About</a>
+        </div>
+
+    </nav>
+
+
+    <!-- Analysis Header -->
+    <section class="analysis-header">
+
+        <div>
+            <h1>Real-Time Analysis</h1>
+            <p>Speak clearly and confidently. We are analysing your speech.</p>
+        </div>
+
+        <div class="analysis-controls">
+
+            <button id="startAnalysis">
+                ▶ Start
+            </button>
+
+            <div class="timer" id="timer">
+                00:00:00
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Mic status / error banner -->
+    <div class="mic-banner info" id="micBanner">
+        <span id="micBannerIcon">🎤</span>
+        <span id="micBannerText">Click Start and allow microphone access to begin.</span>
+    </div>
+
+
+    <!-- Analysis Metrics -->
+    <section class="analysis-section">
+
+        <div class="metrics-container">
+
+            <div class="metric-card">
+                <div class="metric-icon">⏱️</div>
+                <h3>Speech Rate</h3>
+                <div class="metric-value" id="speechRateValue">--</div>
+                <p>WPM</p>
+                <span class="status" id="speechRateStatus">Waiting</span>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">🎵</div>
+                <h3>Pitch</h3>
+                <div class="metric-value" id="pitchValue">--</div>
+                <p>Hz</p>
+                <span class="status" id="pitchStatus">Waiting</span>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">⏸️</div>
+                <h3>Pauses</h3>
+                <div class="metric-value" id="pauseValue">0</div>
+                <p>Times</p>
+                <span class="status" id="pauseStatus">Waiting</span>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">💬</div>
+                <h3>Filler Words</h3>
+                <div class="metric-value" id="fillerValue">0</div>
+                <p>Times</p>
+                <span class="status" id="fillerStatus">Waiting</span>
+            </div>
+
+        </div>
+
+
+        <!-- Main Content -->
+        <div class="analysis-content">
+
+            <!-- Live Pitch Graph -->
+            <div class="graph-box">
+
+                <h3>Live Pitch Curve</h3>
+
+                <canvas id="pitchCanvas" width="600" height="200"></canvas>
+
+                <p class="transcript-line" id="liveTranscript"></p>
+
+            </div>
+
+
+            <!-- Right Panel -->
+            <div class="analysis-right">
+
+                <div class="quality-card">
+
+                    <div class="metric-icon">☆</div>
+
+                    <h3>Presentation Quality</h3>
+
+                    <div class="quality-status" id="qualityStatus">
+                        WAITING
+                    </div>
+
+                </div>
+
+
+                <div class="tips-card">
+
+                    <h3>Tips:</h3>
+
+                    <p id="tip1">● Start speaking to begin analysis</p>
+                    <p id="tip2">● Speak clearly and naturally</p>
+                    <p id="tip3">● Try to maintain a steady pace</p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Stop Button -->
+        <div class="stop-container">
+
+            <button id="stopAnalysis">
+                ■ Stop
+            </button>
+
+        </div>
+
+    </section>
+
+
+    <script src="script.js"></script>
+
+</body>
+</html>

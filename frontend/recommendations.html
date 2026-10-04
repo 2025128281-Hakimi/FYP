@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Recommendations - Presentation Coach</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+
+        <div class="logo">
+            🎙️
+            <span>PRESENTATION COACH</span>
+        </div>
+
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">☰</button>
+
+        <div class="nav-links" id="navLinks">
+            <a href="index.html">Home</a>
+            <a href="analysis.html">Analysis</a>
+            <a href="results.html">Results</a>
+            <a href="recommendations.html" class="active">Recommendations</a>
+            <a href="about.html">About</a>
+        </div>
+
+    </nav>
+
+
+    <!-- Page Header -->
+    <section class="recommendation-header">
+
+        <h1>Your Recommendations</h1>
+
+        <p>
+            Personalized suggestions to help you improve your presentation skills.
+        </p>
+
+    </section>
+
+
+    <!-- Shown only if the user landed here without completing a session -->
+    <div class="demo-notice" id="demoNotice">
+        Showing sample recommendations — this is what your feedback will look like.
+        <a href="analysis.html">Start a presentation</a> to get your real recommendations.
+    </div>
+
+
+    <!-- Overall Feedback -->
+    <section class="feedback-summary">
+
+        <div class="summary-icon">💡</div>
+
+        <div>
+            <h2>Overall Feedback</h2>
+
+            <p id="overallFeedbackText">
+                You delivered a good presentation. Your speaking pace and pitch variation
+                were well maintained. However, reducing filler words and improving pause
+                control can make your presentation more confident and engaging.
+            </p>
+        </div>
+
+    </section>
+
+
+    <!-- Recommendations Container -->
+    <section class="recommendations-container">
+
+
+        <!-- Strengths -->
+        <div class="recommendation-card strengths">
+
+            <div class="recommendation-title">
+                <span>✓</span>
+                <h2>Your Strengths</h2>
+            </div>
+
+            <div id="strengthsList">
+
+                <div class="recommendation-item">
+
+                    <h3>Good Speaking Pace</h3>
+
+                    <p>
+                        Your speech rate was within a comfortable range and easy to follow.
+                    </p>
+
+                </div>
+
+
+                <div class="recommendation-item">
+
+                    <h3>Good Pitch Variation</h3>
+
+                    <p>
+                        You maintained natural variation in your voice throughout the presentation.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <!-- Areas to Improve -->
+        <div class="recommendation-card improve">
+
+            <div class="recommendation-title">
+                <span>!</span>
+                <h2>Areas to Improve</h2>
+            </div>
+
+            <div id="improveList">
+
+                <div class="recommendation-item">
+
+                    <h3>Reduce Filler Words</h3>
+
+                    <p>
+                        Try to reduce words such as "um" and "uh". Pause briefly instead of
+                        using filler words.
+                    </p>
+
+                </div>
+
+
+                <div class="recommendation-item">
+
+                    <h3>Improve Pause Control</h3>
+
+                    <p>
+                        Avoid pauses that are too long. Practice connecting your ideas smoothly.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Action Buttons -->
+    <section class="recommendation-actions">
+
+        <button id="downloadReport">
+            ⬇ Download Report
+        </button>
+
+        <button id="practiceAgainRecommendation">
+            ↻ Practice Again
+        </button>
+
+    </section>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

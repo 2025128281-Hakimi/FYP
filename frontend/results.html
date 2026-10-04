@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Results - Presentation Coach</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+
+        <div class="logo">
+            🎙️
+            <span>PRESENTATION COACH</span>
+        </div>
+
+        <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">☰</button>
+
+        <div class="nav-links" id="navLinks">
+            <a href="index.html">Home</a>
+            <a href="analysis.html">Analysis</a>
+            <a href="results.html" class="active">Results</a>
+            <a href="recommendations.html">Recommendations</a>
+            <a href="about.html">About</a>
+        </div>
+
+    </nav>
+
+
+    <!-- Results Header -->
+    <section class="results-header">
+
+        <h1>Presentation Results</h1>
+
+        <p>
+            Here is your presentation performance analysis.
+        </p>
+
+    </section>
+
+
+    <!-- Shown only if the user landed here without completing a session -->
+    <div class="demo-notice" id="demoNotice">
+        Showing sample data — this is what your results will look like.
+        <a href="analysis.html">Start a presentation</a> to see your real results.
+    </div>
+
+
+    <!-- Overall Score -->
+    <section class="overall-section">
+
+        <div class="overall-card">
+
+            <h2>Overall Score</h2>
+
+            <div class="score-circle">
+                <span id="overallScore">85</span>
+                <small>/100</small>
+            </div>
+
+            <h3 id="overallLabel">GOOD</h3>
+
+            <div class="stars" id="starsRating">
+                ★ ★ ★ ★ ☆
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Performance Analysis -->
+    <section class="performance-section">
+
+        <h2>Performance Analysis</h2>
+
+        <div class="performance-container">
+
+            <!-- Speech Rate -->
+            <div class="performance-card">
+
+                <div class="performance-icon">⏱️</div>
+
+                <div class="performance-info">
+                    <h3>Speech Rate</h3>
+                    <p id="rateValueText">125 WPM</p>
+                    <span id="rateStatusText">Good pace</span>
+                </div>
+
+                <div class="performance-score" id="rateScore">
+                    85%
+                </div>
+
+            </div>
+
+
+            <!-- Pitch -->
+            <div class="performance-card">
+
+                <div class="performance-icon">🎵</div>
+
+                <div class="performance-info">
+                    <h3>Pitch</h3>
+                    <p id="pitchValueText">Good Variation</p>
+                    <span id="pitchStatusText">Natural tone</span>
+                </div>
+
+                <div class="performance-score" id="pitchScore">
+                    82%
+                </div>
+
+            </div>
+
+
+            <!-- Pauses -->
+            <div class="performance-card">
+
+                <div class="performance-icon">⏸️</div>
+
+                <div class="performance-info">
+                    <h3>Pauses</h3>
+                    <p id="pauseValueText">5 Pauses</p>
+                    <span id="pauseStatusText">Acceptable</span>
+                </div>
+
+                <div class="performance-score" id="pauseScore">
+                    78%
+                </div>
+
+            </div>
+
+
+            <!-- Filler Words -->
+            <div class="performance-card">
+
+                <div class="performance-icon">💬</div>
+
+                <div class="performance-info">
+                    <h3>Filler Words</h3>
+                    <p id="fillerValueText">3 Words</p>
+                    <span id="fillerStatusText">Could improve</span>
+                </div>
+
+                <div class="performance-score" id="fillerScore">
+                    70%
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- Action Buttons -->
+    <section class="results-actions">
+
+        <button id="viewRecommendations">
+            View Recommendations
+        </button>
+
+        <button id="practiceAgain">
+            Practice Again
+        </button>
+
+    </section>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>

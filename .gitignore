@@ -1,0 +1,38 @@
+# Dataset / audio files
+*.wav
+*.mp3
+*.flac
+*.zip
+
+# Python virtual environment
+venv/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Machine learning model files
+*.keras
+*.h5
+*.pt
+*.pth
+
+# VS Code
+.vscode/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dataset files
+data/
+dataset/
+dataset2/
+*.csv
+*.z01
+*.z02
+*.z03
+*.z04
+*.z05
+
+*.parquet
