@@ -1,4 +1,3 @@
-
 import argparse
 import os
 
@@ -17,7 +16,7 @@ except ImportError:
 from train import LABEL_MAP, load_labeled_dataset
 
 
-import conformer_model  
+import conformer_model
 
 
 LABEL_NAMES = [name for name, _ in sorted(LABEL_MAP.items(), key=lambda kv: kv[1])]
@@ -92,7 +91,7 @@ def main():
           f"(never seen during training).")
 
     print(f"Loading model from {args.model}...")
- 
+
     custom_objects = {
         "ConvSubsampling": conformer_model.ConvSubsampling,
         "FeedForwardModule": conformer_model.FeedForwardModule,
@@ -114,7 +113,7 @@ def main():
     for i, row in enumerate(cm):
         print(f"{LABEL_NAMES[i]:>8}" + "  ".join(f"{v:>8}" for v in row))
 
-    
+
     report_dict = classification_report(y_val, y_pred, target_names=LABEL_NAMES,
                                           digits=3, output_dict=True)
     import csv

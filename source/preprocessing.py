@@ -6,30 +6,24 @@ TARGET_SR = 16000
 
 
 def load_audio(path: str, target_sr: int = TARGET_SR):
-    """Load an audio file and resample it to target_sr."""
     audio, sr = librosa.load(path, sr=target_sr)
     return audio, sr
 
 
 def reduce_noise(audio: np.ndarray, sr: int) -> np.ndarray:
-    """Apply spectral-gating noise reduction."""
     return nr.reduce_noise(y=audio, sr=sr)
 
 
 def trim_silence(audio: np.ndarray, top_db: int = 25) -> np.ndarray:
-    """Remove leading/trailing silence. Does NOT remove mid-speech pauses,
-    since pause duration is itself a feature we want to keep (see features.py)."""
     trimmed, _ = librosa.effects.trim(audio, top_db=top_db)
     return trimmed
 
 
 def normalize(audio: np.ndarray) -> np.ndarray:
-    """Peak-normalize audio to [-1, 1]."""
     return librosa.util.normalize(audio)
 
 
 def preprocess_audio(path: str, target_sr: int = TARGET_SR) -> tuple[np.ndarray, int]:
-    """Full preprocessing pipeline for one audio file."""
     audio, sr = load_audio(path, target_sr)
     audio = reduce_noise(audio, sr)
     audio = trim_silence(audio)

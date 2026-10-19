@@ -7,10 +7,12 @@
 
     <title>About - Presentation Coach</title>
 
-    
     <link rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 
@@ -40,12 +42,12 @@
     
     <main class="about-container">
 
-      
-        <section class="about-header">
+        
+        <section class="about-hero">
 
-            <div>
+            <div class="about-hero-text">
+                <span class="about-badge">AI-Powered</span>
                 <h1>About This System</h1>
-
                 <p>
                     The Presentation Coaching System uses Artificial Intelligence
                     and deep learning techniques to analyse speech and provide
@@ -53,106 +55,121 @@
                 </p>
             </div>
 
-            <div class="about-illustration">
-                <i class="fa-solid fa-laptop"></i>
-                <i class="fa-solid fa-chart-line"></i>
-                <i class="fa-solid fa-wave-square"></i>
+            <div class="about-hero-visual">
+                <div class="about-orb">
+                    <i class="fa-solid fa-microphone-lines"></i>
+                </div>
+                <div class="about-orb-ring"></div>
             </div>
 
         </section>
 
 
         
-        <section class="about-grid">
+        <section class="about-how">
 
-            
-            <div class="about-card">
+            <h2>How It Works</h2>
 
-                <div class="about-icon">
-                    <i class="fa-solid fa-user"></i>
+            <div class="pipeline">
+
+                <div class="pipeline-step">
+                    <div class="step-number">1</div>
+                    <div class="step-icon"><i class="fa-solid fa-microphone"></i></div>
+                    <h3>Record</h3>
+                    <p>Capture your presentation audio through the browser</p>
                 </div>
 
-                <div>
+                <div class="pipeline-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">2</div>
+                    <div class="step-icon"><i class="fa-solid fa-wave-square"></i></div>
+                    <h3>Analyse</h3>
+                    <p>AI processes your speech for pace, pitch, fillers and clarity</p>
+                </div>
+
+                <div class="pipeline-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">3</div>
+                    <div class="step-icon"><i class="fa-solid fa-chart-line"></i></div>
+                    <h3>Score</h3>
+                    <p>Get a detailed breakdown of your performance metrics</p>
+                </div>
+
+                <div class="pipeline-arrow"><i class="fa-solid fa-arrow-right"></i></div>
+
+                <div class="pipeline-step">
+                    <div class="step-number">4</div>
+                    <div class="step-icon"><i class="fa-solid fa-lightbulb"></i></div>
+                    <h3>Improve</h3>
+                    <p>Receive personalised tips and practice recommendations</p>
+                </div>
+
+            </div>
+
+        </section>
+
+
+       
+        <section class="about-details">
+
+            <h2>Project Details</h2>
+
+            <div class="about-grid-v2">
+
+                <div class="about-card-v2 accent-indigo">
+                    <div class="card-v2-icon">
+                        <i class="fa-solid fa-user-graduate"></i>
+                    </div>
                     <h3>Developed By</h3>
-                    <p>Muhammad Hakimi<br>bin Shaipulizan</p>
+                    <p>Muhammad Hakimi bin Shaipulizan</p>
+                    <span class="card-v2-tag">FYP Project</span>
                 </div>
 
-            </div>
-
-
-            
-            <div class="about-card">
-
-                <div class="about-icon">
-                    <i class="fa-solid fa-window-restore"></i>
+                <div class="about-card-v2 accent-teal">
+                    <div class="card-v2-icon">
+                        <i class="fa-solid fa-code"></i>
+                    </div>
+                    <h3>Technology Stack</h3>
+                    <p>Python, HTML/CSS, JavaScript, TensorFlow</p>
+                    <span class="card-v2-tag">Full-Stack</span>
                 </div>
 
-                <div>
-                    <h3>Version</h3>
-                    <p>1.0</p>
+                <div class="about-card-v2 accent-violet">
+                    <div class="card-v2-icon">
+                        <i class="fa-solid fa-brain"></i>
+                    </div>
+                    <h3>Model Architecture</h3>
+                    <p>Conformer — Convolution-augmented Transformer</p>
+                    <span class="card-v2-tag">Deep Learning</span>
                 </div>
 
-            </div>
-
-
-            
-            <div class="about-card">
-
-                <div class="about-icon">
-                    <i class="fa-solid fa-code"></i>
+                <div class="about-card-v2 accent-amber">
+                    <div class="card-v2-icon">
+                        <i class="fa-solid fa-database"></i>
+                    </div>
+                    <h3>Training Data</h3>
+                    <p>TED-LIUM Release 3 + PodcastFillers dataset</p>
+                    <span class="card-v2-tag">Speech Corpus</span>
                 </div>
 
-                <div>
-                    <h3>Technology Used</h3>
-                    <p>Python, HTML, CSS,<br>TensorFlow</p>
-                </div>
-
-            </div>
-
-
-            
-            <div class="about-card">
-
-                <div class="about-icon">
-                    <i class="fa-solid fa-layer-group"></i>
-                </div>
-
-                <div>
-                    <h3>Dataset</h3>
-                    <p>TED-LIUM Release 3 +<br>PodcastFillers</p>
-                </div>
-
-            </div>
-
-
-            
-            <div class="about-card">
-
-                <div class="about-icon">
-                    <i class="fa-solid fa-brain"></i>
-                </div>
-
-                <div>
-                    <h3>Model</h3>
-                    <p>Conformer<br>(Convolution-augmented Transformer)</p>
-                </div>
-
-            </div>
-
-
-           
-            <div class="about-card">
-
-                <div class="about-icon">
-                    <i class="fa-solid fa-bullseye"></i>
-                </div>
-
-                <div>
+                <div class="about-card-v2 accent-rose">
+                    <div class="card-v2-icon">
+                        <i class="fa-solid fa-bullseye"></i>
+                    </div>
                     <h3>Purpose</h3>
-                    <p>
-                        Provide automated feedback for
-                        presentation skill improvement
-                    </p>
+                    <p>Provide automated feedback for presentation skill improvement</p>
+                    <span class="card-v2-tag">Education</span>
+                </div>
+
+                <div class="about-card-v2 accent-emerald">
+                    <div class="card-v2-icon">
+                        <i class="fa-solid fa-rocket"></i>
+                    </div>
+                    <h3>Version</h3>
+                    <p>1.0 — Initial release with real-time analysis</p>
+                    <span class="card-v2-tag">Stable</span>
                 </div>
 
             </div>
@@ -160,6 +177,15 @@
         </section>
 
     </main>
+
+    <script>
+        
+        const navToggle = document.getElementById('navToggle');
+        const navLinks  = document.getElementById('navLinks');
+        if (navToggle) {
+            navToggle.addEventListener('click', () => navLinks.classList.toggle('open'));
+        }
+    </script>
 
 </body>
 

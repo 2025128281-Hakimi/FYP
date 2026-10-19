@@ -11,13 +11,6 @@ PARQUET_REVISION = "refs/convert/parquet"
 
 
 def find_train_parquet_files(split: str) -> list:
-    """
-    Lists every file in the auto-converted Parquet mirror, filters down to
-    the ones for the requested split, and prefers ones that look like
-    release3 specifically if multiple releases are present as separate
-    configs. Prints what it finds either way, since the exact folder
-    naming for this repo hasn't been verified end-to-end before now.
-    """
     api = HfApi()
     all_files = api.list_repo_files(REPO_ID, repo_type="dataset", revision=PARQUET_REVISION)
 
@@ -48,11 +41,6 @@ def find_train_parquet_files(split: str) -> list:
 
 
 def decode_audio_cell(audio_cell) -> tuple:
-    """
-    The 'audio' column in a HF Audio-feature parquet file is stored as a
-    dict like {'bytes': b'...', 'path': 'some_original_name.wav'} - the
-    raw encoded audio bytes, not a raw waveform array. Decode it here.
-    """
     audio_bytes = audio_cell["bytes"]
     data, sr = sf.read(io.BytesIO(audio_bytes))
     return data, sr

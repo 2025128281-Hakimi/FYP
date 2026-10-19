@@ -1,45 +1,38 @@
-
+INF = float("inf")
 
 RUBRIC_RANGES = {
     "speech_rate_wpm": {
-        "good": (110, 160),
-        "average": (90, 180),   # anything in here but outside "good" = average
+        "good": [(120, 160)],
+        "average": [(110, 120)],
     },
     "filler_per_min": {
-        "good": (0, 2),
-        "average": (0, 5),
+        "good": [(0, 5)],
+        "average": [(5, 12)],
     },
     "pause_per_min": {
-    "good": (0, 15),
-    "average": (0, 25),
-},
+        "good": [(4, 8)],
+        "average": [(3, 4), (8, 15)],
+    },
     "pitch_std_hz": {
-        "good": (15, 70),
-        "average": (5, 100),
+        "good": [(20, 40)],
+        "average": [(10, 20), (40, INF)],
     },
 }
 
 
-def _classify_value(value: float, ranges: dict) -> str:
-    """Classify a single metric value as good / average / poor."""
-    good_lo, good_hi = ranges["good"]
-    avg_lo, avg_hi = ranges["average"]
+def _in_any(value: float, ranges: list) -> bool:
+    return any(lo <= value <= hi for lo, hi in ranges)
 
-    if good_lo <= value <= good_hi:
+
+def _classify_value(value: float, ranges: dict) -> str:
+    if _in_any(value, ranges["good"]):
         return "good"
-    if avg_lo <= value <= avg_hi:
+    if _in_any(value, ranges["average"]):
         return "average"
     return "poor"
 
 
 def score_metrics(features: dict) -> dict:
-    """
-    Takes a dict that may contain any of:
-        speech_rate_wpm, filler_per_min, pause_per_min, pitch_std_hz
-    (missing keys are simply skipped)
-
-    Returns a dict of the same keys mapped to "good" / "average" / "poor".
-    """
     scores = {}
     for metric_name, ranges in RUBRIC_RANGES.items():
         if metric_name in features and features[metric_name] is not None:
@@ -48,12 +41,8 @@ def score_metrics(features: dict) -> dict:
 
 
 def combine_label(scores: dict) -> str:
-    """
-    Combines per-metric good/average/poor scores into one overall label.
-    See module docstring for the combination rule.
-    """
     if not scores:
-        return "average"  # no data at all - safest fallback, should be rare
+        return "average"
 
     good_count = sum(1 for v in scores.values() if v == "good")
     poor_count = sum(1 for v in scores.values() if v == "poor")
@@ -66,17 +55,15 @@ def combine_label(scores: dict) -> str:
 
 
 def label_from_features(features: dict) -> tuple[str, dict]:
-    """Convenience wrapper: features in, (overall_label, per_metric_scores) out."""
     scores = score_metrics(features)
     return combine_label(scores), scores
 
 
 if __name__ == "__main__":
-    # Quick self-check with a few made-up examples - no audio needed.
     examples = [
-        {"speech_rate_wpm": 135, "filler_per_min": 1, "pause_per_min": 2, "pitch_std_hz": 40},
-        {"speech_rate_wpm": 210, "filler_per_min": 9, "pause_per_min": 10, "pitch_std_hz": 3},
-        {"speech_rate_wpm": 100, "filler_per_min": 4, "pause_per_min": 5, "pitch_std_hz": 20},
+        {"speech_rate_wpm": 135, "filler_per_min": 2, "pause_per_min": 6, "pitch_std_hz": 30},
+        {"speech_rate_wpm": 115, "filler_per_min": 8, "pause_per_min": 12, "pitch_std_hz": 17},
+        {"speech_rate_wpm": 100, "filler_per_min": 14, "pause_per_min": 2, "pitch_std_hz": 8},
     ]
     for ex in examples:
         label, scores = label_from_features(ex)

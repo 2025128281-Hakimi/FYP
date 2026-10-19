@@ -9,8 +9,6 @@ LABELS = ("good", "average", "poor")
 
 
 def copy_source_clips(source_dir: str, output_dir: str) -> dict:
-    """Copies one source's good/average/poor clips into the combined
-    output folder. Returns a dict of per-label copy counts."""
     counts = {label: 0 for label in LABELS}
     for label in LABELS:
         src_label_dir = os.path.join(source_dir, label)

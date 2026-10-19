@@ -36,3 +36,9 @@ dataset2/
 *.z05
 
 *.parquet
+
+# Raw downloaded datasets
+PodcastFiller/
+TedLium V1/
+.DS_Store
+._*

@@ -15,7 +15,6 @@ FILLER_LABELS = {"Uh", "Um", "You know", "Like", "Other"}
 
 
 def load_filler_events(csv_path: str) -> dict:
-    """Returns {podcast_filename: [filler event start times in seconds]}."""
     events_by_episode = defaultdict(list)
     with open(csv_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
@@ -28,37 +27,6 @@ def load_filler_events(csv_path: str) -> dict:
 
 
 def load_transcript_word_times(transcript_path: str) -> list:
-    """
-    Returns a list of word start times in seconds, from the STT JSON.
-
-    The docs describe this as a flat list of {"offset", "duration", "text"}
-    word objects, but the real extracted file is a Whisper-style ASR
-    output nested three levels deep instead:
-        {"duration": ..., "language": ..., "segments": [
-            {"duration": ..., "offset": ..., "speaker": ..., "nbest": [
-                {"text": "<segment text>", "words": [
-                    {"confidence": ..., "duration": ..., "offset": ...,
-                     "text": "<word>"},
-                    ...
-                ]}
-            ]},
-            ...
-        ]}
-    Word-level timestamps live at segments[i]["nbest"][0]["words"][j].
-
-    Unit correction: the docs say "offset" is in microseconds, but a real
-    sample disproves that - e.g. word "Hello" has offset=6100000,
-    duration=3000000, and the very next word "there" starts at
-    offset=9100000. As microseconds that's a 3-SECOND-long word starting
-    6.1s into the episode, which is implausible. These numbers only make
-    sense as 100-nanosecond ticks (1 tick = 1e-7s), matching Microsoft's
-    Azure Speech-to-Text convention: "Hello" then starts at 0.61s, lasts
-    0.3s, and "there" starts at 0.91s - right where "Hello" ends. Using
-    the wrong divisor (1e6 instead of 1e7) inflated every word's apparent
-    time by 10x, which silently crushed the computed speech_rate_wpm
-    (observed maxing out around 39 wpm on real data - implausibly slow
-    for natural conversational speech, which runs 120-180+ wpm).
-    """
     if not os.path.exists(transcript_path):
         return []
     with open(transcript_path, "r", encoding="utf-8") as f:
@@ -84,12 +52,6 @@ def find_episode_wav(dataset_root: str, episode: str) -> str | None:
 
 
 def find_transcript_json(dataset_root: str, episode: str) -> str | None:
-    """
-    Like find_episode_wav() - the real extracted dataset splits
-    metadata/episode_transcripts/ into train/validation/test subfolders
-    (mirroring audio/episode_wav/), NOT one flat folder as originally
-    assumed. Checking all three the same way find_episode_wav() does.
-    """
     for split in ("train", "validation", "test"):
         candidate = os.path.join(dataset_root, "metadata", "episode_transcripts", split, episode + ".json")
         if os.path.exists(candidate):
@@ -100,7 +62,6 @@ def find_transcript_json(dataset_root: str, episode: str) -> str | None:
 def chunk_episode(dataset_root: str, episode: str, window_sec: float,
                    filler_times: list, word_times: list, clips_dir: str,
                    clip_prefix: str) -> list:
-    """Slices one episode into fixed windows and computes rubric features for each."""
     wav_path = find_episode_wav(dataset_root, episode)
     if wav_path is None:
         print(f"  Skipping {episode}: episode wav not found")
@@ -108,7 +69,7 @@ def chunk_episode(dataset_root: str, episode: str, window_sec: float,
 
     audio, sr = sf.read(wav_path)
     if audio.ndim > 1:
-        audio = audio.mean(axis=1)  # just in case - docs say mono, but be safe
+        audio = audio.mean(axis=1)
     total_duration = len(audio) / sr
 
     rows = []
@@ -123,9 +84,6 @@ def chunk_episode(dataset_root: str, episode: str, window_sec: float,
         end_sample = int(w_end * sr)
         window_audio = audio[start_sample:end_sample]
 
-        # Normalize only - these are already clean, pre-processed podcast
-        # recordings (unlike user-recorded presentations), so we skip the
-        # heavier noisereduce step here to keep this fast over many windows.
         peak = np.max(np.abs(window_audio)) or 1.0
         window_audio = (window_audio / peak).astype(np.float32)
 

@@ -24,11 +24,6 @@ def write_report(rows: list[dict], report_path: str) -> None:
 
 
 def sort_into_folders(rows: list[dict], output_dir: str, sample_for_review: int = 0) -> None:
-    """
-    Copies each row's audio file into output_dir/<label>/, and optionally
-    pulls a random sample per label into output_dir/_spot_check/<label>/
-    for manual listening.
-    """
     for label in ("good", "average", "poor"):
         os.makedirs(os.path.join(output_dir, label), exist_ok=True)
 
@@ -54,7 +49,6 @@ def sort_into_folders(rows: list[dict], output_dir: str, sample_for_review: int 
 
 def finalize(rows: list[dict], output_dir: str, report_path: str,
              dry_run: bool = False, sample_for_review: int = 0) -> None:
-    """One call that does the whole write-report + sort-into-folders flow."""
     if not rows:
         print("No clips were successfully processed. Nothing to write.")
         return

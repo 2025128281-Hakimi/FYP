@@ -20,10 +20,6 @@ CLIP_ID_PATTERN = re.compile(r'^(.*)_Segment(\d+)$', re.IGNORECASE)
 
 
 def clean_transcript_and_count(text: str) -> tuple:
-    """Returns (real_word_count, filler_count) - see module docstring in
-    the original version of this file for verified edge-case behavior
-    (non-filler tags like {COUGH}/{NOISE} are excluded from both counts,
-    only real filler tags count as fillers)."""
     filler_count = len(FILLER_PATTERN.findall(text))
     cleaned = TAG_PATTERN.sub(' ', text)
     cleaned = ANGLE_PATTERN.sub(' ', cleaned)
@@ -33,8 +29,6 @@ def clean_transcript_and_count(text: str) -> tuple:
 
 
 def parse_clip_id(clip_id: str):
-    """Returns (talk_id, segment_num) or (None, None) if it doesn't match
-    the expected '{TalkId}_Segment{N}' pattern."""
     m = CLIP_ID_PATTERN.match(clip_id)
     if not m:
         return None, None
@@ -42,19 +36,6 @@ def parse_clip_id(clip_id: str):
 
 
 def build_windows(talk_segments: list, window_sec: float, min_window_sec: float) -> list:
-    """
-    Greedily groups a talk's segments (already sorted by segment number)
-    into windows of at least window_sec seconds each, by accumulating
-    consecutive segments' durations. A short leftover at the end of a
-    talk is kept only if it reaches min_window_sec on its own; otherwise
-    it's merged into the previous window (or dropped if it's the only
-    segment in the talk and doesn't reach min_window_sec by itself).
-
-    Each input segment is a dict with at least: 'duration_sec', plus
-    whatever else the caller wants carried through (here: 'audio',
-    'transcript'). Returns a list of windows, each a list of the
-    original segment dicts that belong to that window.
-    """
     windows = []
     current = []
     current_duration = 0.0
@@ -70,19 +51,14 @@ def build_windows(talk_segments: list, window_sec: float, min_window_sec: float)
     if current:
         leftover_duration = sum(s["duration_sec"] for s in current)
         if leftover_duration >= min_window_sec or not windows:
-           
             windows.append(current)
         else:
-           
             windows[-1].extend(current)
 
     return windows
 
 
 def process_window(talk_id: str, window_idx: int, segments: list, clips_dir: str) -> dict:
-    """Concatenates a window's segments' audio+transcript, runs the
-    shared preprocessing/feature pipeline once on the combined window,
-    and returns one labeled row."""
     audio = np.concatenate([s["audio"] for s in segments])
     sr = segments[0]["sr"]
     transcript = " ".join(s["transcript"] for s in segments)
@@ -153,8 +129,7 @@ def main():
         df = df.head(args.max_samples)
         print(f"  Capped to first {len(df)} rows via --max_samples")
 
-   
-    talks = {}  
+    talks = {}
     skipped_missing = 0
     skipped_unparsed = 0
     skipped_error = 0
@@ -190,7 +165,6 @@ def main():
     print(f"Skipped: {skipped_missing} missing wav, {skipped_unparsed} unparsed clip_id, "
           f"{skipped_error} load errors")
 
- 
     rows = []
     for talk_id, segments in talks.items():
         segments.sort(key=lambda s: s["segment_num"])

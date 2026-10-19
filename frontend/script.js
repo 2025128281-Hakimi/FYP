@@ -51,8 +51,19 @@ if (startAnalysis && stopAnalysis) {
     const canvas = document.getElementById("pitchCanvas");
     const canvasCtx = canvas ? canvas.getContext("2d") : null;
 
-    const FILLER_WORDS = new Set([
-        "um", "umm", "uh", "uhh", "erm", "er", "ah", "like", "youknow"
+    // Hesitation sounds, including stretched spellings like "ummm", "uhhh", "erm", "aaa", "hmm".
+    const FILLER_SOUND = /^(u+h+|u+m+|u+h+m+|e+r+|e+r+m+|a+h+|aa+|h+m+|mm+|e+h+)$/;
+
+    // "like" is only a filler when it isn't used as a verb or comparison ("I like", "looks like").
+    const LIKE_NOT_FILLER_BEFORE = new Set([
+        "i", "you", "we", "they", "he", "she", "would", "i'd", "you'd", "we'd",
+        "don't", "didn't", "doesn't", "really", "look", "looks", "looked",
+        "feel", "feels", "felt", "sound", "sounds", "seem", "seems", "just", "more", "much"
+    ]);
+
+    // "you know" is a question, not a filler, after these words ("do you know ...").
+    const YOU_KNOW_NOT_FILLER_BEFORE = new Set([
+        "do", "did", "don't", "didn't", "if", "what", "how", "would", "will", "can"
     ]);
 
     
@@ -76,6 +87,7 @@ if (startAnalysis && stopAnalysis) {
 
     let totalWords = 0;
     let fillerCount = 0;
+    let pendingInterim = "";
     let sessionStartTime = 0;
 
     
@@ -175,10 +187,11 @@ if (startAnalysis && stopAnalysis) {
         canvasCtx.lineWidth = 2;
         canvasCtx.beginPath();
 
+        const offset = maxPoints - recent.length;
         recent.forEach((f, i) => {
-            const x = (i / (maxPoints - 1)) * w;
-            const clamped = Math.max(minF, Math.min(maxF, f));
-            const y = h - ((clamped - minF) / (maxF - minF)) * h;
+            const x = ((offset + i) / (maxPoints - 1)) * w;
+            const clamped = f === null ? minF : Math.max(minF, Math.min(maxF, f));
+            const y = Math.min(h - 2, h - ((clamped - minF) / (maxF - minF)) * h);
             if (i === 0) canvasCtx.moveTo(x, y);
             else canvasCtx.lineTo(x, y);
         });
@@ -306,8 +319,9 @@ if (startAnalysis && stopAnalysis) {
 
         if (freq > 0) {
             pitchHistory.push(freq);
-            pitchDrawHistory.push(freq);
         }
+        pitchDrawHistory.push(freq > 0 ? freq : null);
+        if (pitchDrawHistory.length > 150) pitchDrawHistory.shift();
 
        
         const now = Date.now();
@@ -329,6 +343,37 @@ if (startAnalysis && stopAnalysis) {
     // ---------------------------------------------------------
     // Speech recognition (speech rate + filler words)
     // ---------------------------------------------------------
+
+    function countFinalText(text) {
+        const words = text
+            .toLowerCase()
+            .split(/\s+/)
+            .map((w) => w.replace(/[^a-z']/g, ""))
+            .filter(Boolean);
+
+        totalWords += words.length;
+
+        words.forEach((w, i) => {
+            const prev = i > 0 ? words[i - 1] : "";
+            if (FILLER_SOUND.test(w)) {
+                fillerCount++;
+            } else if (w === "like" && !LIKE_NOT_FILLER_BEFORE.has(prev)) {
+                fillerCount++;
+            } else if (w === "know" && prev === "you" &&
+                       !YOU_KNOW_NOT_FILLER_BEFORE.has(i > 1 ? words[i - 2] : "")) {
+                fillerCount++;
+            }
+        });
+    }
+
+    // Speech the browser heard but never marked "final" (e.g. recognition
+    // restarted or Stop was clicked mid-sentence) would otherwise be lost.
+    function flushPendingInterim() {
+        if (pendingInterim.trim()) {
+            countFinalText(pendingInterim);
+        }
+        pendingInterim = "";
+    }
 
     function setupSpeechRecognition() {
         const SpeechRecognitionAPI =
@@ -355,16 +400,12 @@ if (startAnalysis && stopAnalysis) {
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    const words = transcript.trim().split(/\s+/).filter(Boolean);
-                    totalWords += words.length;
-                    words.forEach((w) => {
-                        const clean = w.toLowerCase().replace(/[.,!?]/g, "");
-                        if (FILLER_WORDS.has(clean)) fillerCount++;
-                    });
+                    countFinalText(transcript);
                 } else {
                     interimText += transcript;
                 }
             }
+            pendingInterim = interimText;
             if (liveTranscript) {
                 liveTranscript.textContent = interimText || liveTranscript.textContent;
             }
@@ -379,6 +420,7 @@ if (startAnalysis && stopAnalysis) {
 
        
         recognition.onend = function () {
+            flushPendingInterim();
             if (audioContext && audioContext.state !== "closed") {
                 try { recognition.start(); } catch (e) { /* already running */ }
             }
@@ -404,6 +446,7 @@ if (startAnalysis && stopAnalysis) {
         pitchDrawHistory = [];
         totalWords = 0;
         fillerCount = 0;
+        pendingInterim = "";
         sessionStartTime = Date.now();
 
         try {
@@ -456,9 +499,22 @@ if (startAnalysis && stopAnalysis) {
         clearInterval(timerInterval);
         cancelAnimationFrame(animationFrameId);
 
+        stopAnalysis.disabled = true;
+        stopAnalysis.textContent = "Analysing...";
+        showBanner("info", "Analysing your speech with the AI model. This can take a few seconds for longer recordings...");
+
+        // Wait (max 1.5 s) for the browser to deliver the last sentence,
+        // otherwise filler words in it are never counted.
         if (recognition) {
-            recognition.onend = null; 
-            recognition.stop();
+            await new Promise(function (resolve) {
+                const timeout = setTimeout(resolve, 1500);
+                recognition.onend = function () {
+                    clearTimeout(timeout);
+                    resolve();
+                };
+                recognition.stop();
+            });
+            flushPendingInterim();
         }
 
         

@@ -1,5 +1,3 @@
-
-
 import argparse
 import glob
 import os
@@ -19,7 +17,6 @@ MAX_FRAMES = 1200
 
 
 def pad_or_truncate(mfcc: np.ndarray, max_frames: int = MAX_FRAMES) -> np.ndarray:
-    """MFCC sequences vary in length; pad/truncate so they can be batched."""
     t, f = mfcc.shape
     if t >= max_frames:
         return mfcc[:max_frames]
@@ -28,33 +25,6 @@ def pad_or_truncate(mfcc: np.ndarray, max_frames: int = MAX_FRAMES) -> np.ndarra
 
 
 def load_labeled_dataset(data_dir: str, cache_path: str = None, force_refresh: bool = False):
-    """
-    Expects a folder structure like:
-        data_dir/
-            good/*.wav
-            average/*.wav
-            poor/*.wav
-
-    This matches the combined output of merge_datasets.py (TED-LIUM +
-    PodcastFillers clips, already labeled by the rubric).
-
-    NOTE: unlike the original version, this does NOT re-run the full
-    preprocess_audio() pipeline (noise reduction + silence trimming +
-    normalization) on each clip. Every clip here already went through
-    that exact pipeline once during labeling (prepare_kaggle_tedlium.py /
-    prepare_podcastfillers.py both call reduce_noise/trim_silence/
-    normalize before writing the .wav). Re-running noise reduction a
-    second time on already-clean audio does nothing useful and is one of
-    the more expensive steps (spectral gating over every clip) - across
-    ~4000 clips that's a lot of wasted laptop time for zero benefit. This
-    just loads the already-processed audio directly.
-
-    Also caches the extracted MFCC features to disk (as a .npz) so that
-    re-running train.py later (different --epochs, --batch_size, etc.)
-    doesn't repeat the full feature-extraction pass over every clip. Pass
-    force_refresh=True (--force_refresh on the CLI) if you've relabeled
-    or changed the data_dir contents and need the cache rebuilt.
-    """
     if cache_path and os.path.exists(cache_path) and not force_refresh:
         print(f"Loading cached features from {cache_path} ...")
         cached = np.load(cache_path)
@@ -70,7 +40,7 @@ def load_labeled_dataset(data_dir: str, cache_path: str = None, force_refresh: b
             if audio.ndim > 1:
                 audio = audio.mean(axis=1)
             if sr != TARGET_SR:
-               
+
                 import librosa
                 audio = librosa.resample(audio.astype(np.float32), orig_sr=sr, target_sr=TARGET_SR)
                 sr = TARGET_SR
@@ -115,7 +85,7 @@ def main():
     X, y = load_labeled_dataset(args.data_dir, cache_path=cache_path, force_refresh=args.force_refresh)
     print(f"Total samples: {len(X)}  |  feature shape: {X.shape[1:]}")
 
-    
+
     rng = np.random.RandomState(args.seed)
     n_val = int(len(X) * args.val_split)
     idx = rng.permutation(len(X))

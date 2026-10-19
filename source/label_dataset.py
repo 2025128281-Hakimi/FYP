@@ -1,5 +1,3 @@
-
-
 import argparse
 import glob
 import os
@@ -12,7 +10,6 @@ from labeling_io import finalize
 
 def compute_clip_features(audio_path: str, transcript_path: str | None,
                            attempt_filler_from_transcript: bool) -> dict:
-    """Runs preprocessing + feature extraction for one clip."""
     audio, sr = preprocess_audio(audio_path)
     duration_sec = len(audio) / sr
     duration_min = max(duration_sec / 60.0, 1e-6)
