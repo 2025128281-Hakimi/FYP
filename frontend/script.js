@@ -570,6 +570,18 @@ if (startAnalysis && stopAnalysis) {
                 formData.append("audio", audioBlob, "session.webm");
                 const resp = await fetch("/api/analyze", { method: "POST", body: formData });
                 const data = await resp.json();
+
+                // The server's filler detector listens to the audio itself, so it catches
+                // the "um"/"uh" that browser speech-to-text drops. Prefer its count.
+                if (resp.ok && typeof data.filler_count === "number") {
+                    results.fillerCount = data.filler_count;
+                    results.fillerScore = Math.round(clamp(100 - data.filler_count * 10, 0, 100));
+                    results.fillerDetectedBy = "model";
+                    const available = [results.rateScore, results.pitchScore, results.pauseScore, results.fillerScore]
+                        .filter((s) => s !== null);
+                    results.overallScore = Math.round(mean(available));
+                }
+
                 if (resp.ok && data.status === "ok") {
                     results.qualityLabel = data.quality_label;
                     results.modelUsed = true;

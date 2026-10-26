@@ -1,11 +1,13 @@
+import json
 import os
 import tempfile
 
 import numpy as np
 from flask import Flask, render_template, jsonify, request
 
-from preprocessing import preprocess_audio, TARGET_SR
+from preprocessing import preprocess_audio, load_audio, TARGET_SR
 from features import extract_mfcc
+from filler_detector import detect_fillers, WINDOW_FRAMES, N_MELS
 
 import conformer_model
 from train import LABEL_MAP, MAX_FRAMES, pad_or_truncate
@@ -22,9 +24,11 @@ app = Flask(
 )
 
 MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presentation_conformer.keras")
+FILLER_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "filler_detector.keras")
 LABEL_NAMES = {idx: name for name, idx in LABEL_MAP.items()}
 
 _model = None
+_filler_model = None
 
 
 @app.route("/")
@@ -77,14 +81,54 @@ def get_model():
     return _model
 
 
+def get_filler_model():
+    global _filler_model
+    if _filler_model is None:
+        if not os.path.exists(FILLER_MODEL_PATH):
+            return None
+        print(f"Loading filler detector from {FILLER_MODEL_PATH} ...")
+        _filler_model = tf.keras.models.load_model(FILLER_MODEL_PATH)
+        try:
+            _filler_model.predict(np.zeros((1, WINDOW_FRAMES, N_MELS, 1), dtype=np.float32), verbose=0)
+        except Exception as e:
+            print(f"Filler detector warm-up skipped: {e}")
+    return _filler_model
+
+
+def run_filler_detection(wav_path: str) -> dict:
+    model = get_filler_model()
+    if model is None:
+        return {}
+    # Raw audio (no noise reduction/trimming), matching the clips the detector was trained on.
+    audio, _ = load_audio(wav_path, TARGET_SR)
+    return detect_fillers(audio, model, **get_filler_rules())
+
+
+def get_filler_rules() -> dict:
+    rules = {"threshold": 0.5, "min_windows": 2}
+    path = os.path.splitext(FILLER_MODEL_PATH)[0] + "_threshold.json"
+    try:
+        with open(path) as f:
+            saved = json.load(f)
+        rules["threshold"] = float(saved.get("threshold", rules["threshold"]))
+        rules["min_windows"] = int(saved.get("min_windows", rules["min_windows"]))
+    except (OSError, ValueError):
+        pass
+    return rules
+
+
 def convert_to_wav(input_path: str, output_path: str) -> None:
-    from pydub import AudioSegment
+    # Call ffmpeg directly: pydub also needs ffprobe, which imageio_ffmpeg
+    # doesn't ship, so browser webm recordings failed to convert.
+    import subprocess
     import imageio_ffmpeg
 
-    AudioSegment.converter = imageio_ffmpeg.get_ffmpeg_exe()
-    audio = AudioSegment.from_file(input_path)
-    audio = audio.set_frame_rate(TARGET_SR).set_channels(1)
-    audio.export(output_path, format="wav")
+    subprocess.run(
+        [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error",
+         "-i", input_path, "-ar", str(TARGET_SR), "-ac", "1", output_path],
+        check=True,
+        capture_output=True,
+    )
 
 
 def run_model_prediction(wav_path: str) -> dict:
@@ -134,6 +178,10 @@ def analyze():
         audio_file.save(raw_path)
         convert_to_wav(raw_path, wav_path)
         result = run_model_prediction(wav_path)
+        try:
+            result.update(run_filler_detection(wav_path))
+        except Exception:
+            app.logger.exception("Filler detection failed - falling back to the browser's count")
         status_code = 200 if result["status"] == "ok" else 200
         return jsonify(result), status_code
     except Exception as e:
@@ -154,4 +202,5 @@ def health():
 
 if __name__ == "__main__":
     get_model()
+    get_filler_model()
     app.run(debug=True, use_reloader=False)
