@@ -111,6 +111,8 @@ def main():
     parser.add_argument("--min_window_sec", type=float, default=10.0,
                          help="A trailing leftover shorter than this gets merged into the previous "
                               "window instead of standing alone")
+    parser.add_argument("--fresh", action="store_true",
+                         help="Ignore any saved progress from an interrupted run and start over")
     args = parser.parse_args()
 
     parquet_path = os.path.join(args.dataset_root, args.split, f"{args.split}_transcript.parquet")
@@ -129,64 +131,84 @@ def main():
         df = df.head(args.max_samples)
         print(f"  Capped to first {len(df)} rows via --max_samples")
 
-    talks = {}
-    skipped_missing = 0
+    # Group segment rows by talk first (text only), then load audio one talk at a
+    # time - holding every segment's audio in memory at once ran out of RAM.
+    talk_rows = {}
     skipped_unparsed = 0
-    skipped_error = 0
-
-    for i, row in df.iterrows():
-        clip_id = row["File"]
-        talk_id, segment_num = parse_clip_id(clip_id)
+    for row in df.itertuples():
+        talk_id, segment_num = parse_clip_id(row.File)
         if talk_id is None:
             skipped_unparsed += 1
             continue
+        talk_rows.setdefault(talk_id, []).append((segment_num, row.File, str(row.Transcript)))
+    print(f"  {len(talk_rows)} talks ({skipped_unparsed} unparsed clip_id skipped)")
 
-        wav_path = os.path.join(wav_dir, clip_id + ".wav")
-        if not os.path.exists(wav_path):
-            skipped_missing += 1
+    # Finished talks are appended to a progress file, so an interrupted run can resume.
+    progress_path = args.report + ".progress.csv"
+    rows = []
+    done_talks = set()
+    if os.path.exists(progress_path) and not args.fresh:
+        done = pd.read_csv(progress_path)
+        rows = done.to_dict("records")
+        done_talks = set(done["talk_id"])
+        print(f"  Resuming: {len(done_talks)} talks ({len(rows)} windows) already done "
+              f"(use --fresh to start over)")
+    elif os.path.exists(progress_path):
+        os.remove(progress_path)
+
+    clips_dir = os.path.join(args.output_dir, "_raw_kaggle_tedlium_windows")
+    os.makedirs(clips_dir, exist_ok=True)
+
+    skipped_missing = 0
+    skipped_error = 0
+    for t, (talk_id, seg_rows) in enumerate(talk_rows.items(), 1):
+        if talk_id in done_talks:
             continue
 
-        try:
-            audio, sr = load_audio(wav_path, TARGET_SR)
-            talks.setdefault(talk_id, []).append({
+        segments = []
+        for segment_num, clip_id, transcript in sorted(seg_rows):
+            wav_path = os.path.join(wav_dir, clip_id + ".wav")
+            if not os.path.exists(wav_path):
+                skipped_missing += 1
+                continue
+            try:
+                audio, sr = load_audio(wav_path, TARGET_SR)
+            except Exception as e:
+                skipped_error += 1
+                print(f"  {clip_id}: FAILED to load ({e}) - skipping")
+                continue
+            segments.append({
                 "segment_num": segment_num,
                 "clip_id": clip_id,
                 "audio": audio,
                 "sr": sr,
                 "duration_sec": len(audio) / sr,
-                "transcript": str(row["Transcript"]),
+                "transcript": transcript,
             })
-        except Exception as e:
-            skipped_error += 1
-            print(f"  {clip_id}: FAILED to load ({e}) - skipping")
-            continue
 
-    print(f"\nLoaded {sum(len(v) for v in talks.values())} segments across {len(talks)} talks.")
-    print(f"Skipped: {skipped_missing} missing wav, {skipped_unparsed} unparsed clip_id, "
-          f"{skipped_error} load errors")
+        talk_result = []
+        if segments:
+            windows = build_windows(segments, args.window_sec, args.min_window_sec)
+            for window_idx, window_segments in enumerate(windows):
+                try:
+                    row = process_window(talk_id, window_idx, window_segments, clips_dir)
+                    talk_result.append({"talk_id": talk_id, **row})
+                except Exception as e:
+                    print(f"  {talk_id} window {window_idx}: FAILED ({e}) - skipping")
 
-    rows = []
-    for talk_id, segments in talks.items():
-        segments.sort(key=lambda s: s["segment_num"])
-        windows = build_windows(segments, args.window_sec, args.min_window_sec)
+        if talk_result:
+            pd.DataFrame(talk_result).to_csv(progress_path, mode="a", index=False,
+                                             header=not os.path.exists(progress_path))
+            rows.extend(talk_result)
+        print(f"  [{t}/{len(talk_rows)}] {talk_id}: {len(talk_result)} windows "
+              f"({len(rows)} total)")
 
-        for window_idx, window_segments in enumerate(windows):
-            try:
-                clips_dir = os.path.join(args.output_dir, "_raw_kaggle_tedlium_windows")
-                os.makedirs(clips_dir, exist_ok=True)
-                row = process_window(talk_id, window_idx, window_segments, clips_dir)
-                rows.append(row)
-            except Exception as e:
-                print(f"  {talk_id} window {window_idx}: FAILED ({e}) - skipping")
-                continue
-
-        if len(rows) % 20 < len(windows):
-            print(f"  ...processed through talk '{talk_id}' ({len(rows)} windows so far)")
-
-    print(f"\nBuilt {len(rows)} windows from {len(talks)} talks "
-          f"(avg {sum(len(v) for v in talks.values()) / max(len(talks), 1):.1f} raw segments/talk).")
+    print(f"\nBuilt {len(rows)} windows from {len(talk_rows)} talks.")
+    print(f"Skipped: {skipped_missing} missing wav, {skipped_error} load errors")
 
     finalize(rows, args.output_dir, args.report, args.dry_run, args.sample_for_review)
+    if rows and not args.dry_run and os.path.exists(progress_path):
+        os.remove(progress_path)
 
 
 if __name__ == "__main__":

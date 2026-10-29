@@ -31,7 +31,9 @@ def load_split(split_path: str):
             "the cached features, so it won't be as slow as the first run) to generate it."
         )
     data = np.load(split_path)
-    return data["train_idx"], data["val_idx"]
+    if "test_idx" in data:
+        return data["test_idx"], "test"
+    return data["val_idx"], "validation"
 
 
 def plot_confusion_matrix(cm: np.ndarray, labels: list, out_path: str) -> None:
@@ -85,9 +87,9 @@ def main():
 
     split_path = args.model + ".split.npz"
     print(f"Loading train/val split from {split_path}...")
-    _, val_idx = load_split(split_path)
-    X_val, y_val = X[val_idx], y[val_idx]
-    print(f"Evaluating on {len(X_val)} held-out validation clips "
+    eval_idx, split_name = load_split(split_path)
+    X_val, y_val = X[eval_idx], y[eval_idx]
+    print(f"Evaluating on {len(X_val)} held-out {split_name} clips "
           f"(never seen during training).")
 
     print(f"Loading model from {args.model}...")
@@ -104,7 +106,7 @@ def main():
     probs = model.predict(X_val, verbose=0)
     y_pred = np.argmax(probs, axis=1)
 
-    print("\n" + classification_report(y_val, y_pred, target_names=LABEL_NAMES, digits=3))
+    print("\n" + classification_report(y_val, y_pred, labels=list(range(len(LABEL_NAMES))), target_names=LABEL_NAMES, zero_division=0, digits=3))
 
     cm = confusion_matrix(y_val, y_pred, labels=list(range(len(LABEL_NAMES))))
     print("Confusion matrix (rows = true label, columns = predicted label):")
@@ -114,7 +116,7 @@ def main():
         print(f"{LABEL_NAMES[i]:>8}" + "  ".join(f"{v:>8}" for v in row))
 
 
-    report_dict = classification_report(y_val, y_pred, target_names=LABEL_NAMES,
+    report_dict = classification_report(y_val, y_pred, labels=list(range(len(LABEL_NAMES))), target_names=LABEL_NAMES, zero_division=0,
                                           digits=3, output_dict=True)
     import csv
     with open(args.out_report, "w", newline="", encoding="utf-8") as f:

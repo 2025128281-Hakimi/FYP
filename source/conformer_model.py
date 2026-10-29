@@ -117,10 +117,12 @@ def build_conformer_model(
     num_blocks: int = 4,
     num_heads: int = 4,
     dropout: float = 0.1,
+    normalizer: layers.Layer = None,
 ) -> tf.keras.Model:
     inputs = layers.Input(shape=input_shape, name="mfcc_input")
 
-    x = ConvSubsampling(d_model)(inputs)
+    x = normalizer(inputs) if normalizer is not None else inputs
+    x = ConvSubsampling(d_model)(x)
     for i in range(num_blocks):
         x = ConformerBlock(d_model, num_heads, dropout=dropout, name=f"conformer_block_{i}")(x)
 
