@@ -27,6 +27,10 @@ MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "presentat
 FILLER_MODEL_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "filler_detector.keras")
 LABEL_NAMES = {idx: name for name, idx in LABEL_MAP.items()}
 
+FRAMES_PER_SEC = TARGET_SR / 512
+CHUNK_FRAMES = int(25 * FRAMES_PER_SEC)
+MIN_CHUNK_FRAMES = int(10 * FRAMES_PER_SEC)
+
 _model = None
 _filler_model = None
 
@@ -131,6 +135,16 @@ def convert_to_wav(input_path: str, output_path: str) -> None:
     )
 
 
+def split_into_chunks(mfcc: np.ndarray) -> list:
+    # The model reads at most MAX_FRAMES (about 38 s), so longer recordings are scored
+    # in pieces the size of the training clips. A short leftover joins the last chunk.
+    chunks = [mfcc[i:i + CHUNK_FRAMES] for i in range(0, len(mfcc), CHUNK_FRAMES)]
+    if len(chunks) > 1 and len(chunks[-1]) < MIN_CHUNK_FRAMES:
+        leftover = chunks.pop()
+        chunks[-1] = np.vstack([chunks[-1], leftover])
+    return chunks
+
+
 def run_model_prediction(wav_path: str) -> dict:
     model = get_model()
     if model is None:
@@ -145,10 +159,12 @@ def run_model_prediction(wav_path: str) -> dict:
     duration_sec = len(audio) / sr
 
     mfcc = extract_mfcc(audio, sr)
-    x = pad_or_truncate(mfcc, MAX_FRAMES)
-    x = np.expand_dims(x, axis=0).astype(np.float32)
+    chunks = split_into_chunks(mfcc)
+    x = np.stack([pad_or_truncate(c, MAX_FRAMES) for c in chunks]).astype(np.float32)
 
-    probs = model.predict(x, verbose=0)[0]
+    chunk_probs = model.predict(x, batch_size=8, verbose=0)
+    # Longer chunks count for more, so a short final chunk can't outweigh a full one.
+    probs = np.average(chunk_probs, axis=0, weights=[len(c) for c in chunks])
     pred_idx = int(np.argmax(probs))
 
     return {
@@ -157,6 +173,7 @@ def run_model_prediction(wav_path: str) -> dict:
         "confidence": float(probs[pred_idx]),
         "class_probabilities": {LABEL_NAMES[i]: float(p) for i, p in enumerate(probs)},
         "duration_sec": round(duration_sec, 2),
+        "chunks_analyzed": len(chunks),
     }
 
 

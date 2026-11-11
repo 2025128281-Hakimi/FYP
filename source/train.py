@@ -192,6 +192,9 @@ def main():
                          help="Epoch experiment: run every epoch instead of stopping when the "
                               "validation macro F1 stops improving")
     parser.add_argument("--patience", type=int, default=6)
+    parser.add_argument("--resume", action="store_true",
+                         help="Continue a stopped run from its last finished epoch "
+                              "(use the same command as before, plus --resume)")
     parser.add_argument("--limit", type=int, default=None,
                          help="Train on a random subset of this many clips (quick test)")
     parser.add_argument("--seed", type=int, default=42,
@@ -229,27 +232,50 @@ def main():
     class_weight = {i: float(w) for i, w in enumerate(weights)}
     print("Class weights: " + ", ".join(f"{LABEL_NAMES[i]} {w:.2f}" for i, w in class_weight.items()))
 
-    # MFCC values range from about -600 to +200; the model learns far better on
-    # standardised input. The layer is saved inside the model, so main.py needs no change.
-    normalizer = tf.keras.layers.Normalization(axis=-1, name="mfcc_norm")
-    normalizer.adapt(X_train.reshape(-1, X.shape[-1])[::50])
+    base = os.path.splitext(args.out)[0]
+    epochs_csv = base + "_epochs.csv"
+    last_path = base + "_last.keras"
 
-    model = build_conformer_model(
-        input_shape=X.shape[1:], num_classes=len(LABEL_MAP), normalizer=normalizer
-    )
-    model.compile(
-        optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
-        loss="sparse_categorical_crossentropy",
-        metrics=["accuracy"],
-    )
+    done_rows = []
+    if args.resume:
+        if not (os.path.exists(last_path) and os.path.exists(epochs_csv)):
+            raise SystemExit(f"Nothing to resume: {last_path} or {epochs_csv} not found. "
+                             "Run without --resume to start training.")
+        with open(epochs_csv, newline="", encoding="utf-8") as f:
+            done_rows = [{k: (int(v) if k == "epoch" else float(v)) for k, v in r.items()}
+                         for r in csv.DictReader(f)]
+        print(f"Resuming from {last_path}: {len(done_rows)} epochs already done")
+        model = tf.keras.models.load_model(last_path)
+    else:
+        # MFCC values range from about -600 to +200; the model learns far better on
+        # standardised input. The layer is saved inside the model, so main.py needs no change.
+        normalizer = tf.keras.layers.Normalization(axis=-1, name="mfcc_norm")
+        normalizer.adapt(X_train.reshape(-1, X.shape[-1])[::50])
+
+        model = build_conformer_model(
+            input_shape=X.shape[1:], num_classes=len(LABEL_MAP), normalizer=normalizer
+        )
+        model.compile(
+            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+            loss="sparse_categorical_crossentropy",
+            metrics=["accuracy"],
+        )
     model.summary()
 
-    base = os.path.splitext(args.out)[0]
-    metrics_cb = EpochMetrics(X_val, y_val, base + "_epochs.csv", args.batch_size)
+    initial_epoch = len(done_rows)
+    if initial_epoch >= args.epochs:
+        raise SystemExit(f"All {args.epochs} epochs are already done - nothing to resume.")
+    best_so_far = max((r["val_macro_f1"] for r in done_rows), default=None)
+
+    metrics_cb = EpochMetrics(X_val, y_val, epochs_csv, args.batch_size)
+    metrics_cb.rows = done_rows
     callbacks = [
         metrics_cb,
         tf.keras.callbacks.ModelCheckpoint(args.out, monitor="val_macro_f1", mode="max",
-                                           save_best_only=True),
+                                           save_best_only=True,
+                                           initial_value_threshold=best_so_far),
+        # Saved after every epoch so a stopped run can continue with --resume.
+        tf.keras.callbacks.ModelCheckpoint(last_path),
     ]
     if not args.no_early_stop:
         callbacks.append(tf.keras.callbacks.EarlyStopping(
@@ -258,6 +284,7 @@ def main():
     model.fit(
         X_train, y_train,
         epochs=args.epochs,
+        initial_epoch=initial_epoch,
         batch_size=args.batch_size,
         class_weight=class_weight,
         callbacks=callbacks,
