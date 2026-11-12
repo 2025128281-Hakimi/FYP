@@ -2255,3 +2255,10 @@ a:focus-visible {
     }
 
 }
+
+.ai-note {
+    margin-top: 8px;
+    font-size: 0.85rem;
+    font-style: italic;
+    color: var(--text-muted);
+}

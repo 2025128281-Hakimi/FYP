@@ -71,9 +71,15 @@ def main():
                          help="Same --data_dir used for train.py (needs the same "
                               "_features_cache.npz to exist there)")
     parser.add_argument("--model", type=str, default="presentation_conformer.keras")
-    parser.add_argument("--out_report", type=str, default="evaluation_report.csv")
-    parser.add_argument("--out_confusion_matrix", type=str, default="confusion_matrix.png")
+    parser.add_argument("--out_report", type=str, default=None,
+                         help="Defaults to evaluation_report.csv in the model's folder")
+    parser.add_argument("--out_confusion_matrix", type=str, default=None,
+                         help="Defaults to confusion_matrix.png in the model's folder")
     args = parser.parse_args()
+
+    model_dir = os.path.dirname(args.model)
+    args.out_report = args.out_report or os.path.join(model_dir, "evaluation_report.csv")
+    args.out_confusion_matrix = args.out_confusion_matrix or os.path.join(model_dir, "confusion_matrix.png")
 
     cache_path = os.path.join(args.data_dir, "_features_cache.npz")
     if not os.path.exists(cache_path):

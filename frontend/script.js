@@ -692,6 +692,64 @@ if (practiceAgain) {
 
 const strengthsList = document.getElementById("strengthsList");
 
+function renderRecommendationItems(container, items, emptyText) {
+    container.innerHTML = "";
+    if (!items.length) {
+        items = [{ title: "", text: emptyText }];
+    }
+    items.forEach(function (item) {
+        const div = document.createElement("div");
+        div.className = "recommendation-item";
+        if (item.title) {
+            const h3 = document.createElement("h3");
+            h3.textContent = item.title;
+            div.appendChild(h3);
+        }
+        const p = document.createElement("p");
+        p.textContent = item.text;
+        div.appendChild(p);
+        container.appendChild(div);
+    });
+}
+
+// Replaces the rule-based recommendations with personalised ones from the server's
+// OpenAI endpoint. If that fails, the rule-based ones simply stay on the page.
+async function loadAiRecommendations(r, improveList, overallFeedbackText) {
+    const note = document.createElement("p");
+    note.className = "ai-note";
+    note.textContent = "Generating personalised feedback...";
+    overallFeedbackText.after(note);
+
+    let ai = r.aiRecommendations;
+    if (!ai) {
+        try {
+            const resp = await fetch("/api/recommendations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(r),
+            });
+            if (!resp.ok) throw new Error("HTTP " + resp.status);
+            ai = await resp.json();
+            r.aiRecommendations = ai;
+            sessionStorage.setItem("presentationResults", JSON.stringify(r));
+        } catch (err) {
+            console.warn("AI recommendations unavailable, keeping rule-based ones:", err);
+            note.remove();
+            return;
+        }
+    }
+
+    renderRecommendationItems(strengthsList, ai.strengths,
+        "Keep practicing - your strengths will show up here as you improve.");
+    renderRecommendationItems(improveList, ai.improvements,
+        "Great job - no major areas of concern this time.");
+    if (ai.overall) {
+        overallFeedbackText.textContent = "You scored " + r.overallScore + "/100 (" +
+            r.qualityLabel.toUpperCase() + "). " + ai.overall;
+    }
+    note.textContent = "Personalised by AI from your measurements.";
+}
+
 if (strengthsList) {
 
     const stored = sessionStorage.getItem("presentationResults");
@@ -763,6 +821,8 @@ if (strengthsList) {
             overallFeedbackText.textContent +=
                 " Note: speech rate and filler-word detection weren't available in your browser for this session.";
         }
+
+        loadAiRecommendations(r, improveList, overallFeedbackText);
     } else {
         demoNotice.classList.add("show");
     }

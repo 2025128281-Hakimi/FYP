@@ -8,6 +8,7 @@ from flask import Flask, render_template, jsonify, request
 from preprocessing import preprocess_audio, load_audio, TARGET_SR
 from features import extract_mfcc
 from filler_detector import detect_fillers, WINDOW_FRAMES, N_MELS
+from recommender import generate_recommendations, RecommenderUnavailable
 
 import conformer_model
 from train import LABEL_MAP, MAX_FRAMES, pad_or_truncate
@@ -210,6 +211,20 @@ def analyze():
                 os.remove(p)
             except OSError:
                 pass
+
+
+@app.route("/api/recommendations", methods=["POST"])
+def recommendations_api():
+    results = request.get_json(silent=True)
+    if not isinstance(results, dict):
+        return jsonify({"error": "Send the presentation results as JSON."}), 400
+    try:
+        return jsonify(generate_recommendations(results))
+    except RecommenderUnavailable as e:
+        return jsonify({"error": f"AI recommendations unavailable: {e}"}), 503
+    except Exception:
+        app.logger.exception("AI recommendations failed - the page keeps the rule-based ones")
+        return jsonify({"error": "AI recommendations failed."}), 502
 
 
 @app.route("/api/health")

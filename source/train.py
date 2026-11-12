@@ -192,6 +192,9 @@ def main():
                          help="Epoch experiment: run every epoch instead of stopping when the "
                               "validation macro F1 stops improving")
     parser.add_argument("--patience", type=int, default=6)
+    parser.add_argument("--lr", type=float, default=1e-4,
+                         help="Learning rate for the Adam optimizer (ignored with --resume, "
+                              "which continues with the saved run's settings)")
     parser.add_argument("--resume", action="store_true",
                          help="Continue a stopped run from its last finished epoch "
                               "(use the same command as before, plus --resume)")
@@ -220,6 +223,7 @@ def main():
             for i in (train_idx, val_idx, test_idx))
         print(f"  --limit: using {len(train_idx) + len(val_idx) + len(test_idx)} clips")
 
+    os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     split_path = args.out + ".split.npz"
     np.savez(split_path, train_idx=train_idx, val_idx=val_idx, test_idx=test_idx, seed=args.seed)
     print(f"Split by talk ({n_talks} talks): train {len(train_idx)} | val {len(val_idx)} | "
@@ -256,11 +260,12 @@ def main():
             input_shape=X.shape[1:], num_classes=len(LABEL_MAP), normalizer=normalizer
         )
         model.compile(
-            optimizer=tf.keras.optimizers.Adam(learning_rate=1e-4),
+            optimizer=tf.keras.optimizers.Adam(learning_rate=args.lr),
             loss="sparse_categorical_crossentropy",
             metrics=["accuracy"],
         )
     model.summary()
+    print(f"Learning rate: {float(model.optimizer.learning_rate.numpy()):g}")
 
     initial_epoch = len(done_rows)
     if initial_epoch >= args.epochs:
