@@ -48,6 +48,9 @@ if (startAnalysis && stopAnalysis) {
     const fillerStatus = document.getElementById("fillerStatus");
     const qualityStatus = document.getElementById("qualityStatus");
     const liveTranscript = document.getElementById("liveTranscript");
+    const tipMain = document.getElementById("tip1");
+    const tipDetail = document.getElementById("tip2");
+    const tipFooter = document.getElementById("tip3");
     const canvas = document.getElementById("pitchCanvas");
     const canvasCtx = canvas ? canvas.getContext("2d") : null;
 
@@ -89,6 +92,16 @@ if (startAnalysis && stopAnalysis) {
     let fillerCount = 0;
     let pendingInterim = "";
     let sessionStartTime = 0;
+
+    // Timestamped events for the live tips, which only look at the last 30 seconds
+    // so a tip disappears once the speaker fixes the problem.
+    let wordEvents = [];     // { t, n } - n words recognised at time t
+    let fillerTimes = [];
+    let pauseTimes = [];
+    let pitchSamples = [];   // { t, f }
+    let lastSoundTime = 0;
+    let currentTipKey = "";
+    let lastTipChange = 0;
 
     
     let mediaRecorder = null;
@@ -305,6 +318,119 @@ if (startAnalysis && stopAnalysis) {
             qualityStatus.textContent = "NEEDS WORK";
             setStatusClass(qualityStatus, "poor");
         }
+
+        updateLiveTips();
+    }
+
+    // ---------------------------------------------------------
+    // Live tips (rule-based so they react instantly; the detailed
+    // feedback after the session comes from the OpenAI API)
+    // ---------------------------------------------------------
+
+    const TIP_WINDOW_MS = 30000;   // judge only the last 30 s
+    const TIP_WARMUP_MS = 15000;   // no tips until there's enough speech to judge
+    const TIP_HOLD_MS = 10000;     // keep each tip on screen at least this long
+    const LONG_SILENCE_MS = 5000;
+
+    function setTip(main, detail, footer) {
+        tipMain.textContent = main;
+        tipDetail.textContent = detail;
+        tipFooter.textContent = footer;
+    }
+
+    function resetTips() {
+        currentTipKey = "";
+        lastTipChange = 0;
+        tipMain.classList.remove("tip-good", "tip-warn");
+        setTip("Listening...", "Your first tip appears after about 15 seconds of speaking.", "");
+    }
+
+    // Returns the most important problem in the last 30 s (or a "good" message).
+    // Order = priority: the first rule that matches wins.
+    function pickTip(now) {
+        const windowStart = Math.max(sessionStartTime, now - TIP_WINDOW_MS);
+        const windowMin = (now - windowStart) / 60000;
+        const words = wordEvents.filter((e) => e.t >= windowStart).reduce((s, e) => s + e.n, 0);
+        const wpm = Math.round(words / windowMin);
+        const fillers = fillerTimes.filter((t) => t >= windowStart).length;
+        const pauses = pauseTimes.filter((t) => t >= windowStart).length;
+        const pitches = pitchSamples.filter((p) => p.t >= windowStart).map((p) => p.f);
+        const pStd = pitches.length > 30 ? stdDev(pitches) : null;
+
+        if (now - lastSoundTime > LONG_SILENCE_MS) {
+            return { key: "silence", level: "warn",
+                     main: "Keep going - move on to your next point",
+                     detail: "You've been silent for " + Math.round((now - lastSoundTime) / 1000) + " seconds." };
+        }
+        if (recognitionSupported && fillers >= 3) {
+            return { key: "fillers", level: "warn",
+                     main: "Pause silently instead of saying \"um\" or \"uh\"",
+                     detail: fillers + " filler words in the last 30 seconds." };
+        }
+        if (recognitionSupported && words >= 10 && wpm > 160) {
+            return { key: "fast", level: "warn",
+                     main: "Slow down - take a breath between sentences",
+                     detail: "Current pace: " + wpm + " words per minute (aim for 110-160)." };
+        }
+        // words >= 5: zero words usually means speech-to-text is lagging, not slow speech.
+        if (recognitionSupported && words >= 5 && wpm < 110) {
+            return { key: "slow", level: "warn",
+                     main: "Pick up the pace a little",
+                     detail: "Current pace: " + wpm + " words per minute (aim for 110-160)." };
+        }
+        if (pStd !== null && pStd < 15) {
+            return { key: "monotone", level: "warn",
+                     main: "Raise your voice on key words",
+                     detail: "Your tone has been quite flat - vary your pitch to stay engaging." };
+        }
+        if (pStd !== null && pStd > 70) {
+            return { key: "variable", level: "warn",
+                     main: "Keep your voice steady",
+                     detail: "Your pitch is swinging a lot - aim for calm, natural variation." };
+        }
+        if (pauses >= 6) {
+            return { key: "pauses", level: "warn",
+                     main: "Connect your ideas more smoothly",
+                     detail: pauses + " hesitation pauses in the last 30 seconds." };
+        }
+        return { key: "good", level: "good",
+                 main: "Great delivery - keep it up!",
+                 detail: recognitionSupported
+                     ? "Pace " + wpm + " WPM, " + fillers + " filler words in the last 30 seconds."
+                     : "Your pitch and pauses look good." };
+    }
+
+    function updateLiveTips() {
+        const now = Date.now();
+        const elapsed = now - sessionStartTime;
+
+        // Drop events that are too old to matter.
+        const cutoff = now - TIP_WINDOW_MS;
+        wordEvents = wordEvents.filter((e) => e.t >= cutoff);
+        fillerTimes = fillerTimes.filter((t) => t >= cutoff);
+        pauseTimes = pauseTimes.filter((t) => t >= cutoff);
+        pitchSamples = pitchSamples.filter((p) => p.t >= cutoff);
+
+        if (elapsed < TIP_WARMUP_MS) {
+            const left = Math.ceil((TIP_WARMUP_MS - elapsed) / 1000);
+            setTip("Listening...", "Your first tip appears in " + left + " seconds.", "");
+            return;
+        }
+
+        const tip = pickTip(now);
+        // The silence tip is urgent and its timer keeps counting, so it may update
+        // straight away; any other change waits until the current tip has had its time.
+        const canChange = currentTipKey === "" || tip.key === "silence" ||
+            currentTipKey === "silence" || now - lastTipChange >= TIP_HOLD_MS;
+        if (tip.key !== currentTipKey && !canChange) return;
+
+        if (tip.key !== currentTipKey) {
+            currentTipKey = tip.key;
+            lastTipChange = now;
+        }
+        tipMain.classList.toggle("tip-good", tip.level === "good");
+        tipMain.classList.toggle("tip-warn", tip.level === "warn");
+        setTip(tip.main, tip.detail, "Based on your last 30 seconds.");
     }
 
     // ---------------------------------------------------------
@@ -317,23 +443,25 @@ if (startAnalysis && stopAnalysis) {
 
         const { freq, rms } = autoCorrelate(buffer, audioContext.sampleRate);
 
+        const now = Date.now();
         if (freq > 0) {
             pitchHistory.push(freq);
+            pitchSamples.push({ t: now, f: freq });
         }
         pitchDrawHistory.push(freq > 0 ? freq : null);
         if (pitchDrawHistory.length > 150) pitchDrawHistory.shift();
 
-       
-        const now = Date.now();
         if (rms < SILENCE_RMS_THRESHOLD) {
             if (!isSilent) {
                 isSilent = { counted: false, start: now };
             } else if (!isSilent.counted && now - isSilent.start > SILENCE_MIN_DURATION_MS) {
                 isSilent.counted = true;
                 pauseCount++;
+                pauseTimes.push(now);
             }
         } else {
             isSilent = false;
+            lastSoundTime = now;
         }
 
         drawPitchCurve();
@@ -352,16 +480,18 @@ if (startAnalysis && stopAnalysis) {
             .filter(Boolean);
 
         totalWords += words.length;
+        const now = Date.now();
+        if (words.length) wordEvents.push({ t: now, n: words.length });
 
         words.forEach((w, i) => {
             const prev = i > 0 ? words[i - 1] : "";
-            if (FILLER_SOUND.test(w)) {
+            const isFiller = FILLER_SOUND.test(w) ||
+                (w === "like" && !LIKE_NOT_FILLER_BEFORE.has(prev)) ||
+                (w === "know" && prev === "you" &&
+                 !YOU_KNOW_NOT_FILLER_BEFORE.has(i > 1 ? words[i - 2] : ""));
+            if (isFiller) {
                 fillerCount++;
-            } else if (w === "like" && !LIKE_NOT_FILLER_BEFORE.has(prev)) {
-                fillerCount++;
-            } else if (w === "know" && prev === "you" &&
-                       !YOU_KNOW_NOT_FILLER_BEFORE.has(i > 1 ? words[i - 2] : "")) {
-                fillerCount++;
+                fillerTimes.push(now);
             }
         });
     }
@@ -448,6 +578,12 @@ if (startAnalysis && stopAnalysis) {
         fillerCount = 0;
         pendingInterim = "";
         sessionStartTime = Date.now();
+        wordEvents = [];
+        fillerTimes = [];
+        pauseTimes = [];
+        pitchSamples = [];
+        lastSoundTime = sessionStartTime;
+        resetTips();
 
         try {
             micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -712,29 +848,39 @@ function renderRecommendationItems(container, items, emptyText) {
     });
 }
 
-// Replaces the rule-based recommendations with personalised ones from the server's
-// OpenAI endpoint. If that fails, the rule-based ones simply stay on the page.
-async function loadAiRecommendations(r, improveList, overallFeedbackText) {
-    const note = document.createElement("p");
-    note.className = "ai-note";
-    note.textContent = "Generating personalised feedback...";
-    overallFeedbackText.after(note);
+// All recommendations are written by the server's OpenAI endpoint - there is no
+// hardcoded fallback. If the call fails, the page says why and offers a retry.
+async function loadAiRecommendations(r, improveList, overallFeedbackText, note) {
+    const scoreText = "You scored " + r.overallScore + "/100 (" + r.qualityLabel.toUpperCase() + "). ";
 
     let ai = r.aiRecommendations;
     if (!ai) {
+        overallFeedbackText.textContent = scoreText;
+        note.textContent = "Generating personalised feedback...";
+        strengthsList.innerHTML = "";
+        improveList.innerHTML = "";
         try {
             const resp = await fetch("/api/recommendations", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(r),
             });
-            if (!resp.ok) throw new Error("HTTP " + resp.status);
-            ai = await resp.json();
+            const data = await resp.json().catch(function () { return {}; });
+            if (!resp.ok) throw new Error(data.error || "Server error (HTTP " + resp.status + ").");
+            ai = data;
             r.aiRecommendations = ai;
             sessionStorage.setItem("presentationResults", JSON.stringify(r));
         } catch (err) {
-            console.warn("AI recommendations unavailable, keeping rule-based ones:", err);
-            note.remove();
+            console.error("AI recommendations failed:", err);
+            note.textContent = "Couldn't generate your recommendations: " + err.message + " ";
+            const retry = document.createElement("button");
+            retry.type = "button";
+            retry.className = "ai-retry";
+            retry.textContent = "Retry";
+            retry.addEventListener("click", function () {
+                loadAiRecommendations(r, improveList, overallFeedbackText, note);
+            });
+            note.appendChild(retry);
             return;
         }
     }
@@ -743,10 +889,7 @@ async function loadAiRecommendations(r, improveList, overallFeedbackText) {
         "Keep practicing - your strengths will show up here as you improve.");
     renderRecommendationItems(improveList, ai.improvements,
         "Great job - no major areas of concern this time.");
-    if (ai.overall) {
-        overallFeedbackText.textContent = "You scored " + r.overallScore + "/100 (" +
-            r.qualityLabel.toUpperCase() + "). " + ai.overall;
-    }
+    overallFeedbackText.textContent = scoreText + (ai.overall || "");
     note.textContent = "Personalised by AI from your measurements.";
 }
 
@@ -761,68 +904,11 @@ if (strengthsList) {
         const r = JSON.parse(stored);
         demoNotice.classList.remove("show");
 
-        const metricInfo = [
-            {
-                score: r.rateScore, available: r.recognitionSupported,
-                strengthTitle: "Good Speaking Pace",
-                strengthText: "Your speech rate (" + r.wpm + " WPM) was within a comfortable range and easy to follow.",
-                improveTitle: "Adjust Your Speaking Pace",
-                improveText: r.wpm < 110
-                    ? "Your pace (" + r.wpm + " WPM) was a little slow - try to speak with a bit more energy and momentum."
-                    : "Your pace (" + r.wpm + " WPM) was a little fast - slow down slightly so your audience can follow along.",
-            },
-            {
-                score: r.pitchScore, available: true,
-                strengthTitle: "Good Pitch Variation",
-                strengthText: "You maintained natural variation in your voice throughout the presentation.",
-                improveTitle: r.pitchStd < 15 ? "Add More Vocal Variety" : "Watch Pitch Fluctuation",
-                improveText: r.pitchStd < 15
-                    ? "Your tone stayed fairly flat - try varying your pitch to emphasize key points."
-                    : "Your pitch varied quite a lot - aim for controlled, natural variation rather than large swings.",
-            },
-            {
-                score: r.pauseScore, available: true,
-                strengthTitle: "Good Pause Control",
-                strengthText: "Your pauses (" + r.pauseCount + ") were well placed and didn't disrupt your flow.",
-                improveTitle: "Improve Pause Control",
-                improveText: "You had " + r.pauseCount + " noticeable pauses. Practice connecting your ideas more smoothly to reduce hesitation.",
-            },
-            {
-                score: r.fillerScore, available: r.recognitionSupported,
-                strengthTitle: "Minimal Filler Words",
-                strengthText: "You used very few filler words (" + r.fillerCount + "), which made you sound confident.",
-                improveTitle: "Reduce Filler Words",
-                improveText: "You used filler words like \"um\" or \"uh\" " + r.fillerCount + " times. Try pausing briefly instead of filling gaps with these words.",
-            },
-        ];
+        const note = document.createElement("p");
+        note.className = "ai-note";
+        overallFeedbackText.after(note);
 
-        let strengthsHtml = "";
-        let improveHtml = "";
-
-        metricInfo.forEach(function (m) {
-            if (!m.available) return;
-            if (m.score >= 75) {
-                strengthsHtml += "<div class=\"recommendation-item\"><h3>" + m.strengthTitle + "</h3><p>" + m.strengthText + "</p></div>";
-            } else {
-                improveHtml += "<div class=\"recommendation-item\"><h3>" + m.improveTitle + "</h3><p>" + m.improveText + "</p></div>";
-            }
-        });
-
-        strengthsList.innerHTML = strengthsHtml || "<div class=\"recommendation-item\"><p>Keep practicing - your strengths will show up here as you improve.</p></div>";
-        improveList.innerHTML = improveHtml || "<div class=\"recommendation-item\"><p>Great job - no major areas of concern this time.</p></div>";
-
-        overallFeedbackText.textContent =
-            "You scored " + r.overallScore + "/100 (" + r.qualityLabel.toUpperCase() + "). " +
-            (improveHtml
-                ? "Focus on the areas below to sound even more confident next time."
-                : "Your delivery was strong across the board - keep up the good habits.");
-
-        if (!r.recognitionSupported) {
-            overallFeedbackText.textContent +=
-                " Note: speech rate and filler-word detection weren't available in your browser for this session.";
-        }
-
-        loadAiRecommendations(r, improveList, overallFeedbackText);
+        loadAiRecommendations(r, improveList, overallFeedbackText, note);
     } else {
         demoNotice.classList.add("show");
     }

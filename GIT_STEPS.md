@@ -16,4 +16,5 @@ Or in the Source Control panel: type a message -> Commit -> Sync Changes.
 - If push is "rejected" (GitHub has changes you don't have), run:
   `git pull FYP main` then `git push` again.
 - Datasets (PodcastFiller/, TedLium V1/, *.wav, *.csv, ...) are in .gitignore and are never uploaded.
+  Exception: CSVs inside Result/ (training results) are uploaded. Model files (*.keras) stay local.
 - Check what will be committed first: `git status`

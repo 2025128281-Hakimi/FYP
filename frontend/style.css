@@ -2262,3 +2262,42 @@ a:focus-visible {
     font-style: italic;
     color: var(--text-muted);
 }
+
+.ai-retry {
+    margin-left: 6px;
+    padding: 2px 10px;
+    font-size: 0.85rem;
+    font-style: normal;
+    cursor: pointer;
+}
+
+@media print {
+    .ai-retry {
+        display: none;
+    }
+}
+
+/* ---------- Live tips (analysis page) ---------- */
+.tips-card .tip-main {
+    font-size: 16px;
+    font-weight: 600;
+    color: white;
+    padding-left: 12px;
+    border-left: 4px solid rgba(255, 255, 255, 0.5);
+    transition: border-color 0.3s;
+}
+
+.tips-card .tip-main.tip-good {
+    border-left-color: #6ee7b7;
+}
+
+.tips-card .tip-main.tip-warn {
+    border-left-color: #fcd34d;
+}
+
+.tips-card .tip-footer {
+    font-size: 12px;
+    font-style: italic;
+    margin-bottom: 0;
+    opacity: 0.75;
+}

@@ -1,0 +1,4 @@
+learning_rate,best_epoch,best_val_macro_f1,val_accuracy_at_best,good_f1_at_best,train_accuracy_epoch20
+0.00003,5,0.472,0.5195,0.2781,0.7546
+0.0001,9,0.4994,0.5851,0.251,0.8191
+0.0003,6,0.318,0.3556,0.2182,0.4001
