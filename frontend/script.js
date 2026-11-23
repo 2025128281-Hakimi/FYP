@@ -91,6 +91,8 @@ if (startAnalysis && stopAnalysis) {
     let totalWords = 0;
     let fillerCount = 0;
     let pendingInterim = "";
+    let pendingDraftFillers = 0;   // fillers in the sentence still being spoken
+    let draftFillerMax = {};       // result index -> most fillers seen in its drafts
     let sessionStartTime = 0;
 
     // Timestamped events for the live tips, which only look at the last 30 seconds
@@ -277,9 +279,12 @@ if (startAnalysis && stopAnalysis) {
                     setStatusClass(speechRateStatus, "average");
                 }
             }
-            fillerValue.textContent = fillerCount;
-            fillerStatus.textContent = fillerCount <= 2 ? "Good" : "Frequent";
-            setStatusClass(fillerStatus, fillerCount <= 2 ? "good" : "poor");
+            // Include fillers in the sentence still being spoken, so the counter
+            // reacts straight away instead of waiting for the sentence to end.
+            const liveFillers = fillerCount + pendingDraftFillers;
+            fillerValue.textContent = liveFillers;
+            fillerStatus.textContent = liveFillers <= 2 ? "Good" : "Frequent";
+            setStatusClass(fillerStatus, liveFillers <= 2 ? "good" : "poor");
         } else {
             speechRateValue.textContent = "N/A";
             speechRateStatus.textContent = "Unsupported browser";
@@ -352,7 +357,7 @@ if (startAnalysis && stopAnalysis) {
         const windowMin = (now - windowStart) / 60000;
         const words = wordEvents.filter((e) => e.t >= windowStart).reduce((s, e) => s + e.n, 0);
         const wpm = Math.round(words / windowMin);
-        const fillers = fillerTimes.filter((t) => t >= windowStart).length;
+        const fillers = fillerTimes.filter((t) => t >= windowStart).length + pendingDraftFillers;
         const pauses = pauseTimes.filter((t) => t >= windowStart).length;
         const pitches = pitchSamples.filter((p) => p.t >= windowStart).map((p) => p.f);
         const pStd = pitches.length > 30 ? stdDev(pitches) : null;
@@ -472,37 +477,54 @@ if (startAnalysis && stopAnalysis) {
     // Speech recognition (speech rate + filler words)
     // ---------------------------------------------------------
 
-    function countFinalText(text) {
-        const words = text
+    function splitWords(text) {
+        return text
             .toLowerCase()
             .split(/\s+/)
             .map((w) => w.replace(/[^a-z']/g, ""))
             .filter(Boolean);
+    }
 
+    function countFillers(words) {
+        let n = 0;
+        words.forEach((w, i) => {
+            const prev = i > 0 ? words[i - 1] : "";
+            if (FILLER_SOUND.test(w) ||
+                (w === "like" && !LIKE_NOT_FILLER_BEFORE.has(prev)) ||
+                (w === "know" && prev === "you" &&
+                 !YOU_KNOW_NOT_FILLER_BEFORE.has(i > 1 ? words[i - 2] : ""))) {
+                n++;
+            }
+        });
+        return n;
+    }
+
+    // Chrome shows "uh"/"um" in its draft (interim) text but usually deletes them
+    // from the final text. draftFillers is the most fillers any draft of the
+    // sentence contained, so those fillers still get counted.
+    function countFinalText(text, draftFillers) {
+        const words = splitWords(text);
         totalWords += words.length;
         const now = Date.now();
         if (words.length) wordEvents.push({ t: now, n: words.length });
 
-        words.forEach((w, i) => {
-            const prev = i > 0 ? words[i - 1] : "";
-            const isFiller = FILLER_SOUND.test(w) ||
-                (w === "like" && !LIKE_NOT_FILLER_BEFORE.has(prev)) ||
-                (w === "know" && prev === "you" &&
-                 !YOU_KNOW_NOT_FILLER_BEFORE.has(i > 1 ? words[i - 2] : ""));
-            if (isFiller) {
-                fillerCount++;
-                fillerTimes.push(now);
-            }
-        });
+        const fillers = Math.max(countFillers(words), draftFillers || 0);
+        for (let k = 0; k < fillers; k++) {
+            fillerCount++;
+            fillerTimes.push(now);
+        }
     }
 
     // Speech the browser heard but never marked "final" (e.g. recognition
     // restarted or Stop was clicked mid-sentence) would otherwise be lost.
     function flushPendingInterim() {
-        if (pendingInterim.trim()) {
-            countFinalText(pendingInterim);
+        if (pendingInterim.trim() || pendingDraftFillers > 0) {
+            countFinalText(pendingInterim, pendingDraftFillers);
         }
         pendingInterim = "";
+        pendingDraftFillers = 0;
+        // Result indexes start again from 0 after recognition restarts.
+        draftFillerMax = {};
     }
 
     function setupSpeechRecognition() {
@@ -527,17 +549,25 @@ if (startAnalysis && stopAnalysis) {
 
         recognition.onresult = function (event) {
             let interimText = "";
+            let interimFillers = 0;
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const transcript = event.results[i][0].transcript;
                 if (event.results[i].isFinal) {
-                    countFinalText(transcript);
+                    countFinalText(transcript, draftFillerMax[i]);
+                    delete draftFillerMax[i];
                 } else {
                     interimText += transcript;
+                    draftFillerMax[i] = Math.max(draftFillerMax[i] || 0,
+                                                 countFillers(splitWords(transcript)));
+                    interimFillers += draftFillerMax[i];
                 }
             }
             pendingInterim = interimText;
+            pendingDraftFillers = interimFillers;
             if (liveTranscript) {
                 liveTranscript.textContent = interimText || liveTranscript.textContent;
+                // Keep the newest words in view when the sentence is longer than 3 lines.
+                liveTranscript.scrollTop = liveTranscript.scrollHeight;
             }
         };
 
@@ -577,6 +607,8 @@ if (startAnalysis && stopAnalysis) {
         totalWords = 0;
         fillerCount = 0;
         pendingInterim = "";
+        pendingDraftFillers = 0;
+        draftFillerMax = {};
         sessionStartTime = Date.now();
         wordEvents = [];
         fillerTimes = [];

@@ -2301,3 +2301,24 @@ a:focus-visible {
     margin-bottom: 0;
     opacity: 0.75;
 }
+
+/* ---------- Analysis page: fixed column widths ----------
+   minmax(0, ...) stops long content (e.g. a long live transcript) from
+   stretching the graph column and squeezing the Quality / Live Tips column. */
+@media (min-width: 851px) {
+    .analysis-content {
+        grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr);
+    }
+}
+
+.graph-box {
+    min-width: 0;
+}
+
+.transcript-line {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.5;
+    max-height: calc(4.5em + 20px);   /* 3 lines + padding, so the box doesn't keep growing */
+    overflow-y: auto;
+}

@@ -6,3 +6,6 @@ datasets>=2.19
 soundfile>=0.12
 scikit-learn>=1.4
 openai>=1.0
+flask>=3.0
+imageio-ffmpeg>=0.4
+matplotlib>=3.8
